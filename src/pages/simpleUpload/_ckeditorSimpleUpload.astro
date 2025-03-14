@@ -1,0 +1,101 @@
+<script is:inline>
+    function initEditor() {
+        const {
+            ClassicEditor,
+            Essentials,
+            Bold,
+            Italic,
+            Font,
+            Paragraph,
+            Image,
+            ImageUpload,
+            FileRepository
+        } = CKEDITOR;
+
+        ClassicEditor
+            .create(document.querySelector('#editor'), {
+                licenseKey: window.config.CKEDITOR_LICENSE_KEY,
+                plugins: [
+                    Essentials,
+                    Bold,
+                    Italic,
+                    Font,
+                    Paragraph,
+                    Image,
+                    ImageUpload,
+                    FileRepository
+                ],
+                toolbar: [
+                    'undo', 'redo', '|',
+                    'bold', 'italic', '|',
+                    'fontSize', 'fontFamily', 'fontColor', 'fontBackgroundColor', '|',
+                    'imageUpload'
+                ],
+                extraPlugins: [MyCustomUploadAdapterPlugin],
+                simpleUpload: {
+                    uploadUrl: 'http://localhost:3000/upload', // Aponta para o servidor Node.js
+                    headers: {
+                        'Authorization': 'Bearer seu-token-aqui' // Opcional
+                    },
+                    withCredentials: false
+                }
+            })
+            .then(editor => {
+                window.editor = editor;
+                console.log('Editor inicializado com sucesso!', editor);
+            })
+            .catch(error => {
+                console.error('Erro ao inicializar o editor:', error);
+            });
+    }
+
+    function MyCustomUploadAdapterPlugin(editor) {
+        editor.plugins.get('FileRepository').createUploadAdapter = (loader) => {
+            return new MyUploadAdapter(loader);
+        };
+    }
+
+    class MyUploadAdapter {
+        constructor(loader) {
+            this.loader = loader;
+        }
+
+        upload() {
+            return this.loader.file
+                .then(file => new Promise((resolve, reject) => {
+                    const data = new FormData();
+                    data.append('upload', file);
+
+                    fetch('http://localhost:3000/upload', {
+                        method: 'POST',
+                        body: data,
+                        headers: {
+                            'Authorization': 'Bearer seu-token-aqui'
+                        },
+                        credentials: this.loader.withCredentials ? 'include' : 'omit'
+                    })
+                    .then(response => response.json())
+                    .then(result => {
+                        if (result.url) {
+                            resolve({ default: result.url });
+                        } else {
+                            reject(result.error ? result.error.message : 'Erro no upload');
+                        }
+                    })
+                    .catch(error => {
+                        reject('Erro ao fazer upload: ' + error.message);
+                    });
+                }));
+        }
+
+        abort() {}
+    }
+
+    if (window.CKEDITOR) {
+        initEditor();
+    } else {
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(initEditor, 100);
+        });
+    }
+</script>

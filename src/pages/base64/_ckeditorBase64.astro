@@ -1,0 +1,89 @@
+<script is:inline>
+    function initEditor() {
+        const {
+            ClassicEditor,
+            Essentials,
+            Bold,
+            Italic,
+            Font,
+            Paragraph,
+            Image,
+            ImageUpload,
+            FileRepository
+        } = CKEDITOR;
+
+        ClassicEditor
+            .create(document.querySelector('#editor'), {
+                licenseKey: window.config ? window.config.CKEDITOR_LICENSE_KEY : '', // Usa config.js ou deixa vazio (veja notas)
+                plugins: [
+                    Essentials,
+                    Bold,
+                    Italic,
+                    Font,
+                    Paragraph,
+                    Image,
+                    ImageUpload,
+                    FileRepository
+                ],
+                toolbar: [
+                    'undo', 'redo', '|',
+                    'bold', 'italic', '|',
+                    'fontSize', 'fontFamily', 'fontColor', 'fontBackgroundColor', '|',
+                    'imageUpload'
+                ],
+                extraPlugins: [MyCustomUploadAdapterPlugin]
+                // Removido simpleUpload, pois não usaremos um servidor
+            })
+            .then(editor => {
+                window.editor = editor;
+                console.log('Editor inicializado com sucesso!', editor);
+            })
+            .catch(error => {
+                console.error('Erro ao inicializar o editor:', error);
+            });
+    }
+
+    function MyCustomUploadAdapterPlugin(editor) {
+        editor.plugins.get('FileRepository').createUploadAdapter = (loader) => {
+            return new MyUploadAdapter(loader);
+        };
+    }
+
+    class MyUploadAdapter {
+        constructor(loader) {
+            this.loader = loader;
+        }
+
+        upload() {
+            return this.loader.file
+                .then(file => new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+
+                    reader.onload = () => {
+                        // Converte o arquivo para Base64
+                        const base64String = reader.result;
+                        resolve({ default: base64String }); // Retorna a string Base64 como URL de dados
+                    };
+
+                    reader.onerror = () => {
+                        reject('Erro ao converter a imagem para Base64');
+                    };
+
+                    // Lê o arquivo como uma URL de dados (Base64)
+                    reader.readAsDataURL(file);
+                }));
+        }
+
+        abort() {
+            // Não precisamos implementar abort para Base64, mas pode ser expandido se necessário
+        }
+    }
+
+    if (window.CKEDITOR) {
+        initEditor();
+    } else {
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(initEditor, 100);
+        });
+    }
+</script>
